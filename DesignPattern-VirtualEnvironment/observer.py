@@ -1,139 +1,100 @@
+# ==========================================
+# DESIGN PATTERN: OBSERVER (PUBLISH-SUBSCRIBE)
+# ==========================================
 from abc import ABC, abstractmethod
 
-# Observer Interface
+# 1. Interface / Blueprint untuk Pengamat
 class Observer(ABC):
     @abstractmethod
-    def update(self, video_title):
+    def update(self, message):
+        """Metode yang akan dipanggil saat Subject berubah."""
         pass
 
+# --- STUDI KASUS 1: YOUTUBE NOTIFICATION ---
 
-# Observer
 class Subscriber(Observer):
     def __init__(self, name):
         self.name = name
 
     def update(self, video_title):
-        print(f"{self.name} received a notification: New video uploaded - {video_title}!")
+        print(f"🔔 Notifikasi untuk {self.name}: Video baru diunggah - '{video_title}'!")
 
-
-# Subject (YouTube channel)
 class YouTubeChannel:
-    def __init__(self):
-        self.subscribers = []
+    def __init__(self, channel_name):
+        self.channel_name = channel_name
+        self._subscribers = []
 
-    def subscribe(self, subscriber):
-        self.subscribers.append(subscriber)
+    def subscribe(self, observer):
+        if observer not in self._subscribers:
+            self._subscribers.append(observer)
 
-    def unsubscribe(self, subscriber):
-        self.subscribers.remove(subscriber)
+    def unsubscribe(self, observer):
+        self._subscribers.remove(observer)
 
-    def notify_subscribers(self, video_title):
-        for subscriber in self.subscribers:
-            subscriber.update(video_title)
-
-    def upload_video(self, video_title):
-        print(f"Uploading video: {video_title}")
-        self.notify_subscribers(video_title)
-
-
-# Usage
-# channel = YouTubeChannel()
-
-# sub1 = Subscriber("Alice")
-# sub2 = Subscriber("Bob")
-
-# channel.subscribe(sub1)
-# channel.subscribe(sub2)
-
-# channel.upload_video("Observer Pattern Explained")
-# Example usage:
-channel = YouTubeChannel()
-
-subscriber1 = Subscriber("John")
-subscriber2 = Subscriber("Alice")
-
-channel.subscribe(subscriber1)
-channel.subscribe(subscriber2)
-
-video_titles = ["Cats vs. Dogs", "Python Tutorial", "Cooking Pasta"]
-
-for title in video_titles:
-    channel.upload_video(title)
-
-channel.unsubscribe(subscriber1)
-
-channel.upload_video("New Video for Subscribers")
+    def upload_video(self, title):
+        print(f"\n🎬 {self.channel_name} mengunggah: {title}")
+        for sub in self._subscribers:
+            sub.update(title)
 
 
-class Observer:
-    def update(self, message):
-        raise NotImplemented
+# --- STUDI KASUS 2: SMART INVENTORY SYSTEM ---
 
-# Inventory
-# case 1: barang terjual habis => notify seller dan user
 class User(Observer):
     def __init__(self, name):
         self.name = name
     
     def update(self, message):
-        print(f"{self.name}, {message}")
+        print(f"📱 [User {self.name}] Info: {message}")
 
 class Seller(Observer):
     def __init__(self, store_name):
         self.store_name = store_name
 
     def update(self, message):
-        print(f"{self.store_name}, {message}")
+        print(f"🏪 [Seller {self.store_name}] Log: {message}")
 
 class Inventory:
     def __init__(self, product_name, quantity):
         self.product_name = product_name
         self.quantity = quantity
-        self.observers = []
-        self.buyer_only_observers = []
-    
-    def register(self, observer, type):
-        self.observers.append(observer)
-        if type == 'buyer':
-            self.buyer_only_observers.append(observer)
+        self._observers = [] # List berisi (observer, role)
 
-    def unRegister(self, observer):
-        self.observers.remove(observer)
-        if type == 'buyer':
-            self.buyer_only_observers.remove(observer)
-    
-    def notify_all(self):
-        for observer in self.observers:
-            observer.update(f"The product {self.product_name} is out of stock.")
+    def register(self, observer, role='buyer'):
+        self._observers.append({'obs': observer, 'role': role})
 
-    def notify_buyer(self):
-        for observer in self.buyer_only_observers:
-            observer.update(f"The product {self.product_name} available!")
-    
+    def notify(self, message, target_role=None):
+        """Mengirim notifikasi berdasarkan role tertentu atau semua."""
+        for entry in self._observers:
+            if target_role is None or entry['role'] == target_role:
+                entry['obs'].update(message)
+
     def sell(self):
-        self.quantity -= 1
-        if self.quantity == 0:
-            self.notify_all()
-    
-    # def add_stock(self, quantity):
-    #     self.quantity += quantity
+        if self.quantity > 0:
+            self.quantity -= 1
+            print(f"\n📦 Transaksi: 1 unit {self.product_name} terjual.")
+            if self.quantity == 0:
+                self.notify(f"Stok {self.product_name} HABIS! Segera restock.", target_role='seller')
+        else:
+            print(f"❌ Gagal: Stok {self.product_name} sudah kosong.")
+
     def add_stock(self):
         self.quantity += 1
+        print(f"\n📥 Restock: 1 unit {self.product_name} ditambahkan.")
         if self.quantity == 1:
-            self.notify_buyer()
+            self.notify(f"Kabar gembira! {self.product_name} kini tersedia kembali.", target_role='buyer')
 
-iphone = Inventory("IPhone 16", 1)
-macbook_pro = Inventory("MacBook Pro M3", 1)
 
-ibox = Seller("ibox")
-iphone.register(ibox)
-macbook_pro.register(ibox)
+# --- TESTING IMPLEMENTATION ---
 
+# Inisialisasi Produk & Aktor
+iphone = Inventory("iPhone 16", 1)
+iBox = Seller("iBox Central")
 rifa = User("Rifa")
-iphone.register(rifa)
 
-jane = User("Jane")
-macbook_pro.register(ibox)
+# Registrasi
+iphone.register(iBox, role='seller')
+iphone.register(rifa, role='buyer')
 
-iphone.sell()
-macbook_pro.sell()
+# Simulasi Kejadian
+iphone.sell()       # Stok jadi 0, seller dapat notif
+iphone.add_stock()  # Stok jadi 1, buyer dapat notif
